@@ -1,0 +1,23 @@
+[model_api]
+endpoint = https://api.example.com/v1/generate
+api_key = YOUR_MODEL_API_KEY
+input_field = input
+timeout = 30
+retries = 3
+
+[judge_api]
+endpoint = https://api.dify.example.com/workflows/execute
+api_key = YOUR_JUDGE_API_KEY
+batch_size = 1
+max_merge_rows = 1
+timeout = 30
+retries = 3
+
+[paths]
+test_sets_dir = test_sets
+output_results_dir = output_results
+evaluation_results_dir = evaluation_results
+
+[execution]
+# 可选：直接指定测试集文件路径
+dataset = test_sets/example.csv

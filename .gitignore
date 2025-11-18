@@ -1,0 +1,35 @@
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Virtual environments
+.venv/
+venv/
+env/
+ENV/
+
+# Test & coverage caches
+.pytest_cache/
+.coverage
+.coverage.*
+
+# Logs & runtime outputs
+logs/
+*.log
+evaluation_results/
+
+# Configs not for VCS
+config.ini
+
+# Test data (keep example.csv)
+test_sets/
+!test_sets/example.csv
+
+# IDE settings
+.vscode/
+.idea/
+
+# OS junk
+.DS_Store
+Thumbs.db
