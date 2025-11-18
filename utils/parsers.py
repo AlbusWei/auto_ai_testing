@@ -45,7 +45,23 @@ def parse_model_output(response: requests.Response) -> str:
                     else:
                         val = val.get(key) if isinstance(val, dict) else None
                 if isinstance(val, str):
+                    # 针对Dify的answer字符串，若其内容为JSON，优先提取其中的message字段
+                    if 'answer' in path:
+                        s = val.strip()
+                        if (s.startswith('{') and s.endswith('}')) or (s.startswith('[') and s.endswith(']')):
+                            try:
+                                obj = json.loads(s)
+                                msg = obj.get('message')
+                                if isinstance(msg, str):
+                                    return msg
+                            except Exception:
+                                pass
                     return val
+                # 若answer为对象，直接提取message
+                if isinstance(val, dict):
+                    msg = val.get('message')
+                    if isinstance(msg, str):
+                        return msg
             except Exception:
                 continue
         # 如果找不到，退回字符串化

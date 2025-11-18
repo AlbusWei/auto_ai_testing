@@ -7,6 +7,7 @@
   - `scenario`(场景分类，可选，仅用于管理)
   - `input`(模型输入文本)
   - `ground_truth`(参考答案或要求描述)
+  - `city`(城市名称，可选，仅用于POI场景)
 - 可使用 `test_sets/example.csv` 作为示例。
 
 ## 执行流程说明
