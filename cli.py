@@ -31,6 +31,7 @@ def _build_parser() -> argparse.ArgumentParser:
         sp.add_argument('--file-url', type=str, action='append', help='Dify files的远程URL(可重复)')
         sp.add_argument('--file-type', type=str, default=None, help='Dify files类型(默认image)')
         sp.add_argument('--dify-inputs-json', type=str, default=None, help='Dify inputs的JSON字符串')
+        sp.add_argument('--detail', action='store_true', help='开启详细模式，输出Dify元数据列')
         sp.add_argument('--judge-endpoint', type=str, help='裁判工作流API端点')
         sp.add_argument('--judge-api-key', type=str, help='裁判API密钥')
         sp.add_argument('--batch-size', type=int, default=None, help='裁判批量处理大小(默认: 1)')
@@ -102,6 +103,7 @@ def main(argv=None) -> int:
         'file_urls': None,  # 从命令行单独收集
         'file_type': args.file_type,
         'dify_inputs_json': args.dify_inputs_json,
+        'detail': args.detail,
         'judge_endpoint': args.judge_endpoint,
         'judge_api_key': args.judge_api_key,
         'batch_size': args.batch_size,
@@ -158,6 +160,7 @@ def main(argv=None) -> int:
             conversation_id=conf.get('conversation_id') or '',
             dify_inputs=dify_inputs,
             files=files if files else None,
+            detail=conf.get('detail') or False,
         )
         out_path, ftype = save_outputs(results, copied_path, output_results_dir, base_name)
         logger.info(f'模型测试完成，输出文件: {out_path}')

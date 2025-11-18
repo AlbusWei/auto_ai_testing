@@ -34,6 +34,7 @@ def run_model(
     conversation_id: str = '',
     dify_inputs: Optional[Dict[str, str]] = None,
     files: Optional[List[Dict[str, str]]] = None,
+    detail: bool = False,
 ) -> pd.DataFrame:
     """对数据集逐行调用模型API，写入output并记录耗时与状态。支持Dify completion/chat与通用JSON。"""
     results = df.copy()
@@ -41,13 +42,14 @@ def run_model(
     results['request_elapsed_ms'] = None
     results['response_status'] = None
     results['error'] = None
-    # Dify元数据列（若可用）
-    for col in [
-        'conversation_id', 'task_id', 'message_id', 'mode',
-        'usage_prompt_tokens', 'usage_completion_tokens', 'usage_total_tokens', 'usage_total_price', 'usage_currency', 'usage_latency'
-    ]:
-        if col not in results.columns:
-            results[col] = None
+    # Dify元数据列（仅在detail模式下写入）
+    if detail:
+        for col in [
+            'conversation_id', 'task_id', 'message_id', 'mode',
+            'usage_prompt_tokens', 'usage_completion_tokens', 'usage_total_tokens', 'usage_total_price', 'usage_currency', 'usage_latency'
+        ]:
+            if col not in results.columns:
+                results[col] = None
 
     for idx, row in results.iterrows():
         inp = row['input']
@@ -62,14 +64,32 @@ def run_model(
             if files:
                 payload['files'] = files
         elif model_kind == 'dify_chat':
+            inputs_payload = dict(dify_inputs or {})
+            lang_val = None
+            if 'lang' in results.columns and not pd.isna(row.get('lang')):
+                lang_val = str(row.get('lang')).strip()
+            city_val = None
+            if 'city' in results.columns and not pd.isna(row.get('city')):
+                city_val = str(row.get('city')).strip()
+
+            if city_val:
+                inputs_payload['function_name'] = 'poi'
+                inputs_payload['city'] = city_val
+                query_val = f'["{str(inp)}"]'
+            else:
+                inputs_payload['function_name'] = 'intention'
+                query_val = str(inp)
+
+            if lang_val:
+                inputs_payload['lang'] = lang_val
+
             payload = {
-                'inputs': dify_inputs or {},
-                'query': inp,
+                'inputs': inputs_payload,
+                'query': query_val,
                 'response_mode': 'blocking',
+                'conversation_id': conversation_id or '',
                 'user': user_id,
             }
-            if conversation_id:
-                payload['conversation_id'] = conversation_id
             if files:
                 payload['files'] = files
         else:
@@ -84,11 +104,12 @@ def run_model(
             if 200 <= resp.status_code < 300:
                 out_text = parse_model_output(resp)
                 results.at[idx, 'output'] = out_text
-                # 提取Dify元数据
-                meta = parse_dify_metadata(resp)
-                for k, v in meta.items():
-                    if f'{k}' in results.columns:
-                        results.at[idx, f'{k}'] = v
+                # 提取Dify元数据（detail模式）
+                if detail:
+                    meta = parse_dify_metadata(resp)
+                    for k, v in meta.items():
+                        if f'{k}' in results.columns:
+                            results.at[idx, f'{k}'] = v
             else:
                 results.at[idx, 'error'] = f'HTTP {resp.status_code}: {resp.text[:200]}'
                 if pd.isna(results.at[idx, 'output']):
