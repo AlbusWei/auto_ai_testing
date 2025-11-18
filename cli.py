@@ -27,6 +27,10 @@ def _build_parser() -> argparse.ArgumentParser:
         sp.add_argument('--model-timeout', type=int, default=None, help='模型API超时(秒)')
         sp.add_argument('--model-retries', type=int, default=None, help='模型API重试次数')
         sp.add_argument('--model-kind', type=str, default=None, choices=['generic', 'dify_completion', 'dify_chat'], help='模型API类型')
+        sp.add_argument('--conversation-id', type=str, default=None, help='Dify对话的conversation_id')
+        sp.add_argument('--file-url', type=str, action='append', help='Dify files的远程URL(可重复)')
+        sp.add_argument('--file-type', type=str, default=None, help='Dify files类型(默认image)')
+        sp.add_argument('--dify-inputs-json', type=str, default=None, help='Dify inputs的JSON字符串')
         sp.add_argument('--judge-endpoint', type=str, help='裁判工作流API端点')
         sp.add_argument('--judge-api-key', type=str, help='裁判API密钥')
         sp.add_argument('--batch-size', type=int, default=None, help='裁判批量处理大小(默认: 1)')
@@ -81,6 +85,10 @@ def main(argv=None) -> int:
         'judge_kind': get_config_value(cfg, 'judge_api', 'kind', 'dify_workflow'),
         'dataset': get_config_value(cfg, 'execution', 'dataset', None),
         'user_id': get_config_value(cfg, 'execution', 'user', 'auto-ai-testing'),
+        'conversation_id': get_config_value(cfg, 'execution', 'conversation_id', ''),
+        'file_urls': get_config_value(cfg, 'execution', 'file_urls', ''),
+        'file_type': get_config_value(cfg, 'execution', 'file_type', 'image'),
+        'dify_inputs_json': get_config_value(cfg, 'execution', 'dify_inputs_json', None),
     }
 
     overrides = {
@@ -90,6 +98,10 @@ def main(argv=None) -> int:
         'model_timeout': args.model_timeout,
         'model_retries': args.model_retries,
         'model_kind': args.model_kind,
+        'conversation_id': args.conversation_id,
+        'file_urls': None,  # 从命令行单独收集
+        'file_type': args.file_type,
+        'dify_inputs_json': args.dify_inputs_json,
         'judge_endpoint': args.judge_endpoint,
         'judge_api_key': args.judge_api_key,
         'batch_size': args.batch_size,
@@ -102,6 +114,29 @@ def main(argv=None) -> int:
     }
 
     conf = merge_cli_overrides(base_conf, overrides)
+
+    # 聚合files列表
+    files: list[dict] = []
+    # 来自配置的逗号分隔
+    if conf.get('file_urls'):
+        for u in str(conf['file_urls']).split(','):
+            u = u.strip()
+            if u:
+                files.append({'type': conf.get('file_type') or 'image', 'transfer_method': 'remote_url', 'url': u})
+    # 来自CLI的追加
+    if args.file_url:
+        for u in args.file_url:
+            if u:
+                files.append({'type': conf.get('file_type') or 'image', 'transfer_method': 'remote_url', 'url': u})
+
+    # 解析Dify inputs
+    dify_inputs = {}
+    if conf.get('dify_inputs_json'):
+        import json
+        try:
+            dify_inputs = json.loads(conf['dify_inputs_json']) or {}
+        except Exception:
+            logger.warning('dify_inputs_json 解析失败，使用空对象')
 
     cmd = args.command
     if cmd == 'test' or cmd == 'run':
@@ -120,6 +155,9 @@ def main(argv=None) -> int:
             retries=conf['model_retries'],
             model_kind=conf['model_kind'],
             user_id=conf['user_id'],
+            conversation_id=conf.get('conversation_id') or '',
+            dify_inputs=dify_inputs,
+            files=files if files else None,
         )
         out_path, ftype = save_outputs(results, copied_path, output_results_dir, base_name)
         logger.info(f'模型测试完成，输出文件: {out_path}')
