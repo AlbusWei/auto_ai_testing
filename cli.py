@@ -26,12 +26,15 @@ def _build_parser() -> argparse.ArgumentParser:
         sp.add_argument('--input-field', type=str, default=None, help='模型请求输入字段名(默认: input)')
         sp.add_argument('--model-timeout', type=int, default=None, help='模型API超时(秒)')
         sp.add_argument('--model-retries', type=int, default=None, help='模型API重试次数')
+        sp.add_argument('--model-kind', type=str, default=None, choices=['generic', 'dify_completion', 'dify_chat'], help='模型API类型')
         sp.add_argument('--judge-endpoint', type=str, help='裁判工作流API端点')
         sp.add_argument('--judge-api-key', type=str, help='裁判API密钥')
         sp.add_argument('--batch-size', type=int, default=None, help='裁判批量处理大小(默认: 1)')
         sp.add_argument('--max-merge-rows', type=int, default=None, help='裁判多行合并最大行数(默认: 1)')
         sp.add_argument('--judge-timeout', type=int, default=None, help='裁判API超时(秒)')
         sp.add_argument('--judge-retries', type=int, default=None, help='裁判API重试次数')
+        sp.add_argument('--judge-kind', type=str, default=None, choices=['dify_workflow', 'generic'], help='裁判API类型')
+        sp.add_argument('--user-id', type=str, default=None, help='Dify user字段(默认: auto-ai-testing)')
 
     # test 命令
     sp_test = sub.add_parser('test', help='仅执行模型测试并生成输出文件')
@@ -68,13 +71,16 @@ def main(argv=None) -> int:
         'input_field': get_config_value(cfg, 'model_api', 'input_field', 'input'),
         'model_timeout': int(get_config_value(cfg, 'model_api', 'timeout', '30')),
         'model_retries': int(get_config_value(cfg, 'model_api', 'retries', '3')),
+        'model_kind': get_config_value(cfg, 'model_api', 'kind', 'generic'),
         'judge_endpoint': get_config_value(cfg, 'judge_api', 'endpoint', None),
         'judge_api_key': get_config_value(cfg, 'judge_api', 'api_key', None),
         'batch_size': int(get_config_value(cfg, 'judge_api', 'batch_size', '1')),
         'max_merge_rows': int(get_config_value(cfg, 'judge_api', 'max_merge_rows', '1')),
         'judge_timeout': int(get_config_value(cfg, 'judge_api', 'timeout', '30')),
         'judge_retries': int(get_config_value(cfg, 'judge_api', 'retries', '3')),
+        'judge_kind': get_config_value(cfg, 'judge_api', 'kind', 'dify_workflow'),
         'dataset': get_config_value(cfg, 'execution', 'dataset', None),
+        'user_id': get_config_value(cfg, 'execution', 'user', 'auto-ai-testing'),
     }
 
     overrides = {
@@ -83,13 +89,16 @@ def main(argv=None) -> int:
         'input_field': args.input_field,
         'model_timeout': args.model_timeout,
         'model_retries': args.model_retries,
+        'model_kind': args.model_kind,
         'judge_endpoint': args.judge_endpoint,
         'judge_api_key': args.judge_api_key,
         'batch_size': args.batch_size,
         'max_merge_rows': args.max_merge_rows,
         'judge_timeout': args.judge_timeout,
         'judge_retries': args.judge_retries,
+        'judge_kind': args.judge_kind,
         'dataset': args.dataset,
+        'user_id': args.user_id,
     }
 
     conf = merge_cli_overrides(base_conf, overrides)
@@ -109,6 +118,8 @@ def main(argv=None) -> int:
             input_field=conf['input_field'] or 'input',
             timeout=conf['model_timeout'],
             retries=conf['model_retries'],
+            model_kind=conf['model_kind'],
+            user_id=conf['user_id'],
         )
         out_path, ftype = save_outputs(results, copied_path, output_results_dir, base_name)
         logger.info(f'模型测试完成，输出文件: {out_path}')
@@ -126,6 +137,9 @@ def main(argv=None) -> int:
             timeout=conf['judge_timeout'],
             retries=conf['judge_retries'],
             base_name=base_name,
+            judge_kind=conf['judge_kind'],
+            user_id=conf['user_id'],
+            evaluation_results_dir=evaluation_results_dir,
         )
         logger.info(f'裁判评估完成，评估文件: {eval_path}')
         return 0
@@ -157,6 +171,9 @@ def main(argv=None) -> int:
             timeout=conf['judge_timeout'],
             retries=conf['judge_retries'],
             base_name=base_name,
+            judge_kind=conf['judge_kind'],
+            user_id=conf['user_id'],
+            evaluation_results_dir=evaluation_results_dir,
         )
         logger.info(f'裁判评估完成，评估文件: {eval_path}')
         return 0

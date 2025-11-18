@@ -29,23 +29,25 @@ pip install -r requirements.txt
 
 - 准备配置文件
 
-复制 `config.ini.example` 为 `config.ini`，填写模型与裁判API：
+复制 `config.ini.example` 为 `config.ini`，填写模型与裁判API（默认已按Dify格式设置）：
 
 ```
 [model_api]
-endpoint = https://api.example.com/v1/generate
+endpoint = https://api.dify.ai/v1/completion-messages
 api_key = YOUR_MODEL_API_KEY
-input_field = input
+input_field = text
 timeout = 30
 retries = 3
+kind = dify_completion
 
 [judge_api]
-endpoint = https://api.dify.example.com/workflows/execute
+endpoint = https://api.dify.ai/v1/workflows/execute
 api_key = YOUR_JUDGE_API_KEY
 batch_size = 1
 max_merge_rows = 1
 timeout = 30
 retries = 3
+kind = dify_workflow
 
 [paths]
 test_sets_dir = test_sets
@@ -54,6 +56,7 @@ evaluation_results_dir = evaluation_results
 
 [execution]
 dataset = test_sets/example.csv
+user = auto-ai-testing
 ```
 
 - 执行
@@ -78,7 +81,7 @@ python cli.py run --config config.ini
 
 ## 命令行参数说明
 
-- 通用：`--config`、`--dataset`、`--model-endpoint`、`--model-api-key`、`--input-field`、`--model-timeout`、`--model-retries`、`--judge-endpoint`、`--judge-api-key`、`--batch-size`、`--max-merge-rows`、`--judge-timeout`、`--judge-retries`
+- 通用：`--config`、`--dataset`、`--model-endpoint`、`--model-api-key`、`--input-field`、`--model-timeout`、`--model-retries`、`--model-kind`、`--judge-endpoint`、`--judge-api-key`、`--batch-size`、`--max-merge-rows`、`--judge-timeout`、`--judge-retries`、`--judge-kind`、`--user-id`
 - `test`: 只执行模型测试。
 - `evaluate`: 只执行评估，需要 `--input` 指定模型输出文件。
 - `run`: 先测试再评估。
@@ -89,6 +92,13 @@ python cli.py run --config config.ini
 - 异常处理机制：HTTP异常与非2xx响应均记录错误信息。
 - 详细日志：控制台与文件日志，含时间戳与上下文。
 - 元数据输出：请求耗时(`request_elapsed_ms`)、状态码(`response_status`)、评估耗时(`judge_elapsed_ms`)等。
+
+## Dify对接说明
+
+- 模型测试（completion-messages）：payload 形如 `{"inputs": {"text": "..."}, "response_mode": "blocking", "user": "..."}`。
+- 模型测试（chat-messages）：可通过 `--model-kind dify_chat` 使用 `{"inputs": {}, "query": "...", "response_mode": "blocking", "user": "..."}`。
+- 裁判评估（workflows/execute）：payload 形如 `{"inputs": {"ground_truth": "...", "output": "..."}, "response_mode": "blocking", "user": "..."}`；批量模式会将多行封装为 `inputs.items=[{ground_truth, output}, ...]`。
+- 响应解析：支持从 `answer`、`outputs.output_text` 等字段抽取文本；评分解析支持 `outputs.score` 或文本中的数字。
 
 ## 文档
 

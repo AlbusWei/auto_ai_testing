@@ -1,17 +1,20 @@
 [model_api]
-endpoint = https://api.example.com/v1/generate
+endpoint = https://api.dify.ai/v1/completion-messages
 api_key = YOUR_MODEL_API_KEY
-input_field = input
+# 对Dify completion建议使用 text 作为输入字段
+input_field = text
 timeout = 30
 retries = 3
+kind = dify_completion
 
 [judge_api]
-endpoint = https://api.dify.example.com/workflows/execute
+endpoint = https://api.dify.ai/v1/workflows/execute
 api_key = YOUR_JUDGE_API_KEY
 batch_size = 1
 max_merge_rows = 1
 timeout = 30
 retries = 3
+kind = dify_workflow
 
 [paths]
 test_sets_dir = test_sets
@@ -21,3 +24,4 @@ evaluation_results_dir = evaluation_results
 [execution]
 # 可选：直接指定测试集文件路径
 dataset = test_sets/example.csv
+user = auto-ai-testing

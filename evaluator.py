@@ -35,6 +35,9 @@ def evaluate(
     timeout: int = 30,
     retries: int = 3,
     base_name: str,
+    judge_kind: str = 'dify_workflow',
+    user_id: str = 'auto-ai-testing',
+    evaluation_results_dir: str = 'evaluation_results',
 ) -> Tuple[pd.DataFrame, str]:
     """
     调用裁判API为每行生成label。支持批量(列表结构)或单行文本拼接结构。
@@ -51,15 +54,37 @@ def evaluate(
         group_end = min(i + max(1, max_merge_rows), n)
         group = results.iloc[i:group_end]
         try:
-            if batch_size > 1 or max_merge_rows > 1:
-                items = [
-                    {'ground_truth': str(r['ground_truth']), 'output': str(r['output'])}
-                    for _, r in group.iterrows()
-                ]
-                payload = {'items': items}
+            # 根据judge_kind构造payload
+            if judge_kind == 'dify_workflow':
+                if batch_size > 1 or max_merge_rows > 1:
+                    items = [
+                        {'ground_truth': str(r['ground_truth']), 'output': str(r['output'])}
+                        for _, r in group.iterrows()
+                    ]
+                    payload = {
+                        'inputs': {'items': items},
+                        'response_mode': 'blocking',
+                        'user': user_id,
+                    }
+                else:
+                    payload = {
+                        'inputs': {
+                            'ground_truth': str(group.iloc[0]['ground_truth']),
+                            'output': str(group.iloc[0]['output']),
+                        },
+                        'response_mode': 'blocking',
+                        'user': user_id,
+                    }
             else:
-                # 单行处理
-                payload = {'input': _build_single_input(str(group.iloc[0]['ground_truth']), str(group.iloc[0]['output']))}
+                # 通用/占位：与旧逻辑兼容
+                if batch_size > 1 or max_merge_rows > 1:
+                    items = [
+                        {'ground_truth': str(r['ground_truth']), 'output': str(r['output'])}
+                        for _, r in group.iterrows()
+                    ]
+                    payload = {'items': items}
+                else:
+                    payload = {'input': _build_single_input(str(group.iloc[0]['ground_truth']), str(group.iloc[0]['output']))}
 
             resp, elapsed_ms = request_with_retry(
                 'POST', endpoint, headers=_headers(api_key), json=payload, timeout=timeout, retries=retries
@@ -94,13 +119,13 @@ def evaluate(
             i = group_end
 
     # 保存
-    ensure_dir('evaluation_results')
+    ensure_dir(evaluation_results_dir)
     ftype = detect_file_type(copied_dataset_path)
     if ftype == 'csv':
-        out_path = derive_output_path('evaluation_results', base_name, 'evaluation', '.csv')
+        out_path = derive_output_path(evaluation_results_dir, base_name, 'evaluation', '.csv')
         results.to_csv(out_path, index=False, encoding='utf-8')
     else:
-        out_path = derive_output_path('evaluation_results', base_name, 'evaluation', '.xlsx')
+        out_path = derive_output_path(evaluation_results_dir, base_name, 'evaluation', '.xlsx')
         results.to_excel(out_path, index=False)
     logger.info(f'评估文件已保存: {out_path}')
     return results, out_path

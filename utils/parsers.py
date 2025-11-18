@@ -32,6 +32,10 @@ def parse_model_output(response: requests.Response) -> str:
             ('choices', 0, 'text'),
             ('message',),
             ('text',),
+            ('answer',),
+            ('data', 'answer'),
+            ('outputs', 'answer'),
+            ('outputs', 'output_text'),
         ]:
             try:
                 val: Any = j
@@ -61,7 +65,7 @@ def parse_label_from_judge_response(response: requests.Response) -> Union[int, f
     if j is not None:
         # 单值
         for path in [
-            ('score',), ('data', 'score'), ('result', 'score'), ('outputs', 'score')
+            ('score',), ('data', 'score'), ('result', 'score'), ('outputs', 'score'), ('answer',), ('data', 'answer')
         ]:
             try:
                 val: Any = j
@@ -69,6 +73,13 @@ def parse_label_from_judge_response(response: requests.Response) -> Union[int, f
                     val = val.get(key) if isinstance(val, dict) else None
                 if isinstance(val, (int, float)):
                     return val
+                if isinstance(val, str):
+                    # 从字符串中提取第一个数字作为评分
+                    import re
+                    m = re.search(r"[-+]?\d*\.\d+|\d+", val)
+                    if m:
+                        n = float(m.group(0))
+                        return int(n) if abs(n - int(n)) < 1e-9 else n
             except Exception:
                 continue
         # 列表

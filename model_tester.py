@@ -21,8 +21,18 @@ def _headers(api_key: str) -> Dict[str, str]:
     return h
 
 
-def run_model(df: pd.DataFrame, endpoint: str, api_key: str, *, input_field: str = 'input', timeout: int = 30, retries: int = 3) -> pd.DataFrame:
-    """对数据集逐行调用模型API，写入output并记录耗时与状态。"""
+def run_model(
+    df: pd.DataFrame,
+    endpoint: str,
+    api_key: str,
+    *,
+    input_field: str = 'input',
+    timeout: int = 30,
+    retries: int = 3,
+    model_kind: str = 'generic',
+    user_id: str = 'auto-ai-testing',
+) -> pd.DataFrame:
+    """对数据集逐行调用模型API，写入output并记录耗时与状态。支持Dify completion/chat与通用JSON。"""
     results = df.copy()
     results['request_started_at'] = None
     results['request_elapsed_ms'] = None
@@ -31,7 +41,23 @@ def run_model(df: pd.DataFrame, endpoint: str, api_key: str, *, input_field: str
 
     for idx, row in results.iterrows():
         inp = row['input']
-        payload = {input_field: inp}
+        # 根据model_kind构造payload
+        if model_kind == 'dify_completion':
+            # 参照 Dify completion-messages
+            payload = {
+                'inputs': {input_field: inp},  # 通常 input_field='text'
+                'response_mode': 'blocking',
+                'user': user_id,
+            }
+        elif model_kind == 'dify_chat':
+            payload = {
+                'inputs': {},
+                'query': inp,
+                'response_mode': 'blocking',
+                'user': user_id,
+            }
+        else:
+            payload = {input_field: inp}
         results.at[idx, 'request_started_at'] = pd.Timestamp.utcnow().isoformat()
         try:
             resp, elapsed_ms = request_with_retry(
