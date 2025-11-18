@@ -120,3 +120,29 @@ def parse_label_from_judge_response(response: requests.Response) -> Union[int, f
         n = float(s)
         out.append(int(n) if abs(n - int(n)) < 1e-9 else n)
     return out
+
+
+def parse_dify_metadata(response: requests.Response) -> Dict[str, Any]:
+    """解析Dify响应中的元数据与会话信息。"""
+    meta: Dict[str, Any] = {}
+    j = _safe_json(response) or {}
+    if not isinstance(j, dict):
+        return meta
+    # 顶层会话信息
+    for k in ['conversation_id', 'task_id', 'message_id', 'mode', 'event', 'id', 'created_at']:
+        if k in j:
+            meta[k] = j.get(k)
+    # usage
+    usage = None
+    try:
+        usage = j.get('metadata', {}).get('usage')
+    except Exception:
+        usage = None
+    if isinstance(usage, dict):
+        for k in [
+            'prompt_tokens', 'completion_tokens', 'total_tokens', 'total_price', 'currency', 'latency',
+            'prompt_unit_price', 'completion_unit_price', 'prompt_price', 'completion_price', 'prompt_price_unit', 'completion_price_unit'
+        ]:
+            if k in usage:
+                meta[f'usage_{k}'] = usage.get(k)
+    return meta

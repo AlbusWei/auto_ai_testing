@@ -62,14 +62,14 @@ user = auto-ai-testing
 - 执行
 
 ```
-# 仅运行模型测试
-python cli.py test --config config.ini
+# 仅运行模型测试（Dify chat-messages，blocking模式）
+python cli.py test --config config.ini --model-kind dify_chat
 
 # 仅对已有输出文件评估
 python cli.py evaluate --config config.ini --input output_results/<文件名>.csv
 
-# 先测试模型再评估
-python cli.py run --config config.ini
+# 先测试模型再评估（若judge已配置）
+python cli.py run --config config.ini --model-kind dify_chat
 ```
 
 ## 配置文件说明
@@ -95,10 +95,14 @@ python cli.py run --config config.ini
 
 ## Dify对接说明
 
-- 模型测试（completion-messages）：payload 形如 `{"inputs": {"text": "..."}, "response_mode": "blocking", "user": "..."}`。
-- 模型测试（chat-messages）：可通过 `--model-kind dify_chat` 使用 `{"inputs": {}, "query": "...", "response_mode": "blocking", "user": "..."}`。
+- 模型测试（chat-messages）：`{"inputs": <自定义变量>, "query": "...", "response_mode": "blocking", "conversation_id": "...", "user": "...", "files": [...]}`。
+  - `--conversation-id`：用于继续对话；为空表示新会话。
+  - `--file-url` 与 `--file-type`：支持远程图片URL（Vision能力），可重复传入多个URL。
+  - `--dify-inputs-json`：注入自定义应用变量（JSON对象）。
+- 模型测试（completion-messages）：`{"inputs": {"text": "..."}, "response_mode": "blocking", "user": "..."}`。
 - 裁判评估（workflows/execute）：payload 形如 `{"inputs": {"ground_truth": "...", "output": "..."}, "response_mode": "blocking", "user": "..."}`；批量模式会将多行封装为 `inputs.items=[{ground_truth, output}, ...]`。
 - 响应解析：支持从 `answer`、`outputs.output_text` 等字段抽取文本；评分解析支持 `outputs.score` 或文本中的数字。
+  - 元数据记录：`conversation_id`、`usage_total_tokens`、`usage_latency` 等字段被自动解析并写入输出文件。
 
 ## 文档
 
