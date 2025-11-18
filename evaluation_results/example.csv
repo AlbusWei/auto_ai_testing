@@ -1,0 +1,2 @@
+id,scenario,input,ground_truth,output,label,judge_elapsed_ms,judge_status,judge_error
+1,example,示例输入文本,示例参考答案,示例模型输出,1,0,200,

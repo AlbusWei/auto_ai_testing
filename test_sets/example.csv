@@ -1,0 +1,4 @@
+序号,scenario,input,ground_truth
+1,classification,天气很好，适合出去散步。,请识别这句话的情感为正面(0/1)。
+2,qa,请回答：2+2等于几？,答案应该是4。
+3,paraphrase,将“我很高兴”改写为同义表达。,输出应为正面语义的改写。

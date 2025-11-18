@@ -14,17 +14,33 @@ ENV/
 .coverage
 .coverage.*
 
-# Logs & runtime outputs
-logs/
+# Logs & runtime outputs (track only placeholders/templates)
 *.log
-evaluation_results/
+
+# logs: ignore all real logs, keep placeholders
+logs/*
+!logs/.gitkeep
+!logs/README.md
+
+# output_results: ignore generated outputs, keep placeholders
+output_results/*
+!output_results/.gitkeep
+!output_results/README.md
+
+# evaluation_results: ignore generated evaluations, keep templates/placeholders
+evaluation_results/*
+!evaluation_results/.gitkeep
+!evaluation_results/README.md
+!evaluation_results/example.csv
 
 # Configs not for VCS
 config.ini
 
-# Test data (keep example.csv)
-test_sets/
+# Test data: ignore all except template/example files
+test_sets/*
 !test_sets/example.csv
+!test_sets/README.md
+!test_sets/.gitkeep
 
 # IDE settings
 .vscode/
