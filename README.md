@@ -59,11 +59,22 @@ dataset = test_sets/example.csv
 user = auto-ai-testing
 ```
 
+- 准备测试集
+
+将原始测试集文件（如 `example.csv`）放入 `test_sets/` 目录。
+测试文件格式：
+- `id`：测试用例唯一标识符（整数）。
+- `scenario`：场景分类（可选，仅用于管理）。
+- `input`：模型输入文本。
+- `answer_sample`：模型输出示例（可选，仅用于管理）。
+- `ground_truth`：参考答案或要求描述。
+- `city`（可选）：城市名称，仅用于POI场景。
+
 - 执行
 
 ```
 # 仅运行模型测试（Dify chat-messages，blocking模式）
-python cli.py test --config config.ini --model-kind dify_chat
+python cli.py test --config config.ini --model-kind dify_chat --dataset test_sets/自定义测试集.csv
 
 # 仅对已有输出文件评估
 python cli.py evaluate --config config.ini --input output_results/<文件名>.csv
