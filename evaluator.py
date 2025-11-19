@@ -1,4 +1,4 @@
-from typing import List, Tuple
+from typing import List, Tuple, Optional
 
 import pandas as pd
 
@@ -6,9 +6,13 @@ from utils.http import request_with_retry
 from utils.logger import get_logger
 from utils.parsers import parse_label_from_judge_response, parse_model_output
 from utils.files import derive_output_path, detect_file_type, ensure_dir
+from utils.streaming import open_stream_writer
 
 
 logger = get_logger(__name__)
+
+
+# ------------- Streaming writer moved to utils.streaming -------------
 
 
 def _headers(api_key: str) -> dict:
@@ -51,6 +55,20 @@ def evaluate(
         results['judge_answer'] = None
     if 'label' not in results.columns:
         results['label'] = None
+
+    # Prepare streaming writer and output path (atomic header creation)
+    ensure_dir(evaluation_results_dir)
+    ftype = detect_file_type(copied_dataset_path)
+    ext = '.csv' if ftype == 'csv' else '.xlsx'
+    out_path = derive_output_path(evaluation_results_dir, base_name, 'evaluation', ext)
+    cols = list(results.columns)
+    writer = None
+    try:
+        # 尝试初始化流式写入器（原子创建+锁）
+        writer = open_stream_writer('csv' if ftype == 'csv' else 'excel', out_path, cols)
+    except Exception as e:
+        logger.warning(f'初始化评估流式写入失败，将回退为一次性写入: {e}')
+        writer = None
 
     n = len(results)
     i = 0
@@ -152,14 +170,35 @@ def evaluate(
                 results.at[idx, 'judge_error'] = err
             i = group_end
 
-    # 保存
-    ensure_dir(evaluation_results_dir)
-    ftype = detect_file_type(copied_dataset_path)
-    if ftype == 'csv':
-        out_path = derive_output_path(evaluation_results_dir, base_name, 'evaluation', '.csv')
-        results.to_csv(out_path, index=False, encoding='utf-8')
+        # stream-append rows after processing each group
+        if writer is not None:
+            for idx in group.index:
+                try:
+                    row_vals = [results.at[idx, c] if c in results.columns else None for c in cols]
+                    writer.append_row(row_vals)
+                except Exception as we:
+                    logger.error(f'评估结果写入失败(行id={results.at[idx, "id"]}): {we}')
+
+    # finalize with compatibility
+    if writer is not None:
+        try:
+            writer.close()
+        except Exception as e:
+            logger.error(f'评估文件关闭失败: {e}')
+        logger.info(f'评估文件已保存: {out_path}')
+        return results, out_path
     else:
-        out_path = derive_output_path(evaluation_results_dir, base_name, 'evaluation', '.xlsx')
-        results.to_excel(out_path, index=False)
-    logger.info(f'评估文件已保存: {out_path}')
-    return results, out_path
+        # 回退到一次性保存逻辑（保持原行为与兼容性）
+        try:
+            if ftype == 'csv':
+                fallback_path = derive_output_path(evaluation_results_dir, base_name, 'evaluation', '.csv')
+                results.to_csv(fallback_path, index=False, encoding='utf-8')
+            else:
+                fallback_path = derive_output_path(evaluation_results_dir, base_name, 'evaluation', '.xlsx')
+                results.to_excel(fallback_path, index=False)
+            logger.info(f'评估文件已保存(一次性写入): {fallback_path}')
+            return results, fallback_path
+        except Exception as e:
+            logger.error(f'评估文件一次性保存失败: {e}')
+            # 返回预期的路径以便上层处理，但文件可能不存在
+            return results, out_path
